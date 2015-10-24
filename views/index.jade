@@ -2,21 +2,20 @@ extends layout
 
 block content
   if crumbs
-    .ui.segment
+    .ui.segment.fixed.sticky.container
       .ui.breadcrumb
         each crumb in crumbs
           span.divider /
           a.section(class=crumb.active ? 'active' : '' href=crumb.path)
             span= crumb.name
 
-  if dirs.length
-    .ui.list
-      each dir in dirs
-        a.item(href='/#{dir.rpath}')
-          i.folder.icon
-          .content= dir.name
+  .ui.list.directories
+    each dir in dirs
+      a.item(href='/#{dir.rpath}')
+        i.folder.icon
+        .content= dir.name
 
-  .ui.divider
+    .ui.divider
 
   unless files.length
     h3 No images
