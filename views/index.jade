@@ -9,20 +9,20 @@ block content
           span= crumb.name
 
   if dirs.length
-    h2 dirs
-    ul
+    .ui.list
       each dir in dirs
-        li
-          a(href='#{dir.name}')= dir.name
-  h2 pics
+        a.item(href='#{dir.name}')
+          i.folder.icon
+          .content= dir.name
+
   unless dirs.length
-    span No images
-  ul
-  .ui.four.column.grid
-    each file in files
-      .column
-        a.ui.fluid.card(href='/img/#{file.name}')
-          .image
-            img(src='/preview/#{file.name}')
-          .content
-            span= file.name
+    h3 No images
+  else
+    .ui.four.column.grid
+      each file in files
+        .column
+          a.ui.fluid.card(href='/img/#{file.name}')
+            .image
+              img(src='/preview/#{file.name}')
+            .content
+              span= file.name

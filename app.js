@@ -33,6 +33,8 @@ app.use(function* logger(next) {
 })
 
 app.use(function* responseTime(next) {
+  if (~this.path.indexOf('/semantic')) return
+
   let start = process.hrtime()
   yield next
 
@@ -41,14 +43,7 @@ app.use(function* responseTime(next) {
   this.set('X-Response-Time', totalsec + 'ms')
 })
 
-//app.use(function* contentLength(next) {
-//  yield next
-//
-//  if (!this.body) return
-//    this.set('Content-Length', this.body.length)
-//})
-
-router.get('/', function* body(next) {
+router.get(/^\/(?!(?:preview|img))(.*)?/, function* dir(next) {
   yield next
 
   let isdir = function (f) {
@@ -56,17 +51,32 @@ router.get('/', function* body(next) {
     return stats.isDirectory()
   }
 
-  let files = yield cofs.readdir(IMAGES)
+  let ispic = function (f) {
+    return /.*(png|jpe?g|gif)$/.test(f.path)
+  }
+
+  let directory = this.params[0] || ''
+  if (directory.length) directory += '/'
+
+  let ipath = join(IMAGES, directory)
+  let files = yield cofs.readdir(ipath)
+
   files = files
     .filter((file) => file[0] !== '.')
-    .map((file) => ({ name: file, path: join(IMAGES, file) }))
+    .map((file) => ({ name: `${directory}${file}`, path: join(ipath, file) }))
 
   this.state.files = files
-    .filter((file) => !isdir(file))
+    .filter((file) => ispic(file))
   this.state.dirs = files
     .filter((file) => isdir(file))
 
   this.state.crumbs = [{ name: '(root)', path: '/' }]
+  if (~directory.indexOf('/')) {
+    let here = ''
+    let parts = directory.split('/').filter((part) => part.length)
+    this.state.crumbs = this.state.crumbs.concat(parts.map((i) => ({ name: i, path: here += '/' + i })))
+  }
+  this.state.crumbs[this.state.crumbs.length - 1].active = true
 
   yield this.render('index')
 })
@@ -79,56 +89,36 @@ router.get(/^\/img\/(.*)/, function* full(next) {
   this.body = fs.createReadStream(path)
 })
 
-router.get(/^\/preview\/(.*)/, function* preview(next) {
-  yield next
-
+router.get(/^\/preview\/(.*)/
+, function* validate(next) {
   let directory = dirname(join(PREVIEWS, this.params[0]));
 
   try {
     fs.statSync(directory)
-  } catch (ex) {
+  } catch(_) {
     fs.mkdirSync(directory);
   }
 
-  let thumb = yield easyimage.rescrop({
-    src: join(IMAGES, this.params[0]),
-    dst: join(PREVIEWS, this.params[0]),
-    width: 500, height: 500,
-    cropwidth: 256, cropheight: 256,
-    x: 0, y: 0
-  })
-
-  this.type = thumb.type
-  this.body = fs.createReadStream(thumb.path)
-})
-
-router.get(/\/(.*)/, function* dir(next) {
-  if (~this.path.indexOf('/preview') || ~this.path.indexOf('/img')) return
-
+  yield next
+}
+, function* preview(next) {
   yield next
 
-  let isdir = function (f) {
-    let stats = fs.statSync(f.path)
-    return stats.isDirectory()
+  let preview = join(PREVIEWS, this.params[0])
+  try {
+    fs.statSync(preview)
+  } catch(_) {
+    yield easyimage.rescrop({
+      src: join(IMAGES, this.params[0]),
+      dst: join(PREVIEWS, this.params[0]),
+      width: 500, height: 500,
+      cropwidth: 256, cropheight: 256,
+      x: 0, y: 0
+    })
   }
 
-  let path = join(IMAGES, this.params[0])
-  let files = yield cofs.readdir(path)
-  files = files
-    .filter((file) => file[0] !== '.')
-    .map((file) => ({ name: `${this.params[0]}/${file}`, path: join(path, file) }))
-
-  this.state.files = files
-    .filter((file) => !isdir(file))
-  this.state.dirs = files
-    .filter((file) => isdir(file))
-
-  let here = ''
-  let parts = this.params[0].split('/').map((i) => ({ name: i, path: here += '/' + i }))
-  parts[parts.length - 1].active = true
-  this.state.crumbs = [{ name: '(root)', path: '/' }].concat(parts)
-
-  yield this.render('index')
+  this.type = extname(preview)
+  this.body = fs.createReadStream(preview)
 })
 
 app.use(views('views', {
