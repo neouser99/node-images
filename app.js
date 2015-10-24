@@ -2,6 +2,7 @@
 
 const fs = require('fs'),
       cofs = require('co-fs'),
+      mkdirp = require('mkdirp'),
       path = require('path'),
       join = path.join,
       dirname = path.dirname,
@@ -101,7 +102,7 @@ router.get(/^\/preview\/(.*)/
   try {
     fs.statSync(directory)
   } catch(_) {
-    fs.mkdirSync(directory);
+    mkdirp.sync(directory)
   }
 
   yield next
