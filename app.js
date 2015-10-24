@@ -69,7 +69,7 @@ router.get(/^\/(?!(?:preview|img))(.*)?/, function* dir(next) {
 
   files = files
     .filter((file) => file[0] !== '.')
-    .map((file) => ({ name: `${directory}${file}`, path: join(ipath, file) }))
+    .map((file) => ({ name: file, rpath: `${directory}${file}`, path: join(ipath, file) }))
 
   this.state.files = files
     .filter((file) => ispic(file))
@@ -91,6 +91,7 @@ router.get(/^\/img\/(.*)/, function* full(next) {
   yield next
 
   let path = join(IMAGES, this.params[0])
+  this.set('Cache-Control', 'public,no-transform,max-age=31536000')
   this.type = extname(path)
   this.body = fs.createReadStream(path)
 })
@@ -123,6 +124,7 @@ router.get(/^\/preview\/(.*)/
     })
   }
 
+  this.set('Cache-Control', 'public,no-transform,max-age=31536000')
   this.type = extname(preview)
   this.body = fs.createReadStream(preview)
 })

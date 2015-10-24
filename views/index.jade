@@ -12,7 +12,7 @@ block content
   if dirs.length
     .ui.list
       each dir in dirs
-        a.item(href='/#{dir.name}')
+        a.item(href='/#{dir.rpath}')
           i.folder.icon
           .content= dir.name
 
@@ -24,8 +24,8 @@ block content
     .ui.four.column.grid
       each file in files
         .column
-          a.ui.fluid.card(href='/img/#{file.name}')
+          a.ui.fluid.card(href='/img/#{file.rpath}')
             .image
-              img(src='/preview/#{file.name}')
+              img(src='/preview/#{file.rpath}')
             .content
               span= file.name
