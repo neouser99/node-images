@@ -43,6 +43,11 @@ app.use(function* responseTime(next) {
   this.set('X-Response-Time', totalsec + 'ms')
 })
 
+app.use(function* title(next) {
+  this.state.title = 'Pictures'
+  yield next
+})
+
 router.get(/^\/(?!(?:preview|img))(.*)?/, function* dir(next) {
   yield next
 

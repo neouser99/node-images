@@ -2,11 +2,12 @@ extends layout
 
 block content
   if crumbs
-    .ui.breadcrumb
-      each crumb in crumbs
-        span.divider /
-        a.section(class=crumb.active ? 'active' : '' href=crumb.path)
-          span= crumb.name
+    .ui.segment
+      .ui.breadcrumb
+        each crumb in crumbs
+          span.divider /
+          a.section(class=crumb.active ? 'active' : '' href=crumb.path)
+            span= crumb.name
 
   if dirs.length
     .ui.list
@@ -15,7 +16,9 @@ block content
           i.folder.icon
           .content= dir.name
 
-  unless dirs.length
+  .ui.divider
+
+  unless files.length
     h3 No images
   else
     .ui.four.column.grid
