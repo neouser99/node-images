@@ -23,7 +23,7 @@ block content
     .ui.four.column.grid
       each file in files
         .column
-          a.ui.fluid.card(href='/img/#{file.rpath}')
+          a.ui.fluid.card(href='/img/#{file.rpath}' target='_blank')
             .image
               img(src='/preview/#{file.rpath}')
             .content

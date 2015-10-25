@@ -54,7 +54,7 @@ router.get(/^\/(?!(?:preview|img))(.*)?/, function* dir(next) {
 
   let isdir = function (f) {
     let stats = fs.statSync(f.path)
-    return stats.isDirectory()
+    return f.name !== 'orginals' && stats.isDirectory()
   }
 
   let ispic = function (f) {
