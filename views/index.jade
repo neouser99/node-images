@@ -15,7 +15,7 @@ block content
 
   .ui.list.directories
     each dir in dirs
-      a.item(href='/#{dir.rpath}')
+      a.item(href='./#{dir.name}/')
         i.folder.icon
         .content= dir.name
 
@@ -27,18 +27,26 @@ block content
     .ui.four.column.grid
       each file in files
         .column
-          a.ui.fluid.card(href='/img/#{file.rpath}' target='_blank')
-            .ui.image(class=file.hidden ? 'disabled' : '')
-              img(src='/preview/#{file.rpath}')
-            .content
-              span= file.name
+          if is_admin
+            form.ui.fluid.card(action='./#{file.name}' method='post')
+              input(type='hidden' name='action' value=file.hidden ? 'show' : 'hide')
 
-            if is_admin
+              a.ui.image(href='./#{file.name}' target='_blank' class=file.hidden ? 'disabled' : '')
+                img(src='./#{file.name}?thumbnail')
+              .content
+                a(href='./#{file.name}' target='_blank' class=file.hidden ? 'disabled' : '')= file.name
+
               if file.hidden
-                form.extra.content(action='/show' method='post')
-                  input(type='hidden' name='directory' value='#{directory}')
-                  button.mini.ui.button.right.floated(type='submit' name='file' value='#{file.name}') Show
+                button.ui.bottom.attached.button(type='submit' name='file' value='#{file.name}')
+                  i.icon.unhide
+                  span Show
               else
-                form.extra.content(action='/hide' method='post')
-                  input(type='hidden' name='directory' value='#{directory}')
-                  button.mini.ui.button.right.floated(type='submit' name='file' value='#{file.name}') Hide
+                button.ui.bottom.attached.button(type='submit' name='file' value='#{file.name}')
+                  i.icon.hide
+                  span Hide
+          else
+            a.ui.fluid.card(href='/img/#{file.rpath}' target='_blank')
+              .ui.image(class=file.hidden ? 'disabled' : '')
+                img(src='/preview/#{file.rpath}')
+              .content
+                span= file.name

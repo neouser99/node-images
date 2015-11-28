@@ -5,6 +5,7 @@ const fs = require('fs'),
       mkdirp = require('mkdirp'),
       path = require('path'),
       join = path.join,
+      basename = path.basename,
       dirname = path.dirname,
       extname = path.extname
 
@@ -54,47 +55,50 @@ app.use(function* is_admin(next) {
   yield next
 })
 
-router.post('/hide', body, function* hide(next) {
-  if (!this.state.is_admin)
-    return yield next
+router.use(function* setup(next) {
+  let d = this.path
+  this.state.abspath = join(IMAGES, d)
+  let stats = fs.statSync(this.state.abspath)
 
-  let directory = this.request.body.directory
-  let ipath = join(IMAGES, directory)
+  if (stats.isFile()) {
+    this.state.is_file = true
+    this.state.absdir = dirname(this.state.abspath)
+    this.state.reldir = dirname(d)
+    this.state.file = basename(d)
+  } else if (stats.isDirectory()) {
+    this.state.is_file = false
+    this.state.absdir = this.state.abspath
+    this.state.reldir = d
 
-  let hidden = undefined
-  try {
-    hidden = JSON.parse(fs.readFileSync(join(ipath, '.hidden')))
-  } catch(_) {
-    hidden = {}
+    if (this.state.reldir[this.state.reldir.length - 1] !== '/')
+      return this.redirect(this.state.reldir + '/')
+  } else {
+    // 404?
   }
 
-  hidden[this.request.body.file] = true
-  fs.writeFileSync(join(ipath, '.hidden'), JSON.stringify(hidden))
-
-  this.redirect(this.request.body.directory || '/')
-})
-
-router.post('/show', body, function* hide(next) {
-  if (!this.state.is_admin)
-    return yield next
-
-  let directory = this.request.body.directory
-  let ipath = join(IMAGES, directory)
-
-  let hidden = undefined
+  console.log('in directory: %s, path: %s', this.state.reldir, this.state.abspath)
+  this.state.previews = join(PREVIEWS, this.state.reldir)
   try {
-    hidden = JSON.parse(fs.readFileSync(join(ipath, '.hidden')))
+    fs.statSync(this.state.previews)
   } catch(_) {
-    hidden = {}
+    mkdirp.sync(this.state.previews)
   }
 
-  hidden[this.request.body.file] = false
-  fs.writeFileSync(join(ipath, '.hidden'), JSON.stringify(hidden))
+  try {
+    let file = join(this.state.absdir, '.hidden')
+    console.log('loading hidden: %s', file)
+    this.state.hidden = JSON.parse(fs.readFileSync(file))
+  } catch(_) {
+    this.state.hidden = {}
+  }
 
-  this.redirect(this.request.body.directory || '/')
+  yield next
 })
 
-router.get(/^\/(?!(?:preview|img))(.*)?/, function* dir(next) {
+router.get(/(.*)/, function* dir(next) {
+  if (this.state.is_file)
+    return yield next
+
   yield next
 
   let isdir = function (f) {
@@ -106,87 +110,77 @@ router.get(/^\/(?!(?:preview|img))(.*)?/, function* dir(next) {
     return /.*(png|jpe?g|gif)$/.test(f.path)
   }
 
-  let directory = this.state.directory = this.params[0] || ''
-  if (directory.length) directory += '/'
-
-  let ipath = join(IMAGES, directory)
+  let directory = this.state.reldir
+  let ipath = this.state.abspath
   let files = yield cofs.readdir(ipath)
-
-  let hidden = undefined
-  try {
-    hidden = JSON.parse(fs.readFileSync(join(ipath, '.hidden')))
-  } catch(_) {
-    hidden = {}
-  }
 
   files = files
     .filter((file) => file[0] !== '.')
-    .filter((file) => this.state.is_admin || !hidden[file])
-    .map((file) => ({ name: file, rpath: `${directory}${file}`, path: join(ipath, file), hidden: hidden[file] }))
+    .filter((file) => this.state.is_admin || !this.state.hidden[file])
+    .map((file) => ({
+      name: file,
+      rpath: `${directory}${file}`,
+      path: join(ipath, file),
+      hidden: this.state.hidden[file]
+    }))
 
-  this.state.files = files
-    .filter((file) => ispic(file))
-  this.state.dirs = files
-    .filter((file) => isdir(file))
+  this.state.files = files.filter(ispic)
+  this.state.dirs = files.filter(isdir)
 
   this.state.crumbs = [{ name: '(root)', path: '/' }]
   if (~directory.indexOf('/')) {
     let here = ''
     let parts = directory.split('/').filter((part) => part.length)
-    this.state.crumbs = this.state.crumbs.concat(parts.map((i) => ({ name: i, path: here += '/' + i })))
+    this.state.crumbs = this.state.crumbs.concat(parts.map((i) => ({ name: i, path: here += `/${i}/` })))
   }
   this.state.crumbs[this.state.crumbs.length - 1].active = true
 
   yield this.render('index')
 })
 
-router.get(/^\/img\/(.*)/, function* full(next) {
+router.get(/(.*)/, function* full(next) {
+  if (!this.state.is_file)
+    return
+
   yield next
 
-  let path = join(IMAGES, this.params[0])
-  this.set('Cache-Control', 'public,no-transform,max-age=31536000')
-  this.type = extname(path)
-  this.body = fs.createReadStream(path)
+  let path = this.state.abspath
+  if (~this.querystring.indexOf('thumbnail')) {
+    let preview = join(this.state.previews, path)
+
+    try {
+      fs.statSync(preview)
+    } catch(_) {
+      console.log('creating preview: %s -> %s', path, preview)
+      yield easyimage.rescrop({
+        src: path,
+        dst: preview,
+        width: 500, height: 500,
+        cropwidth: 256, cropheight: 256,
+        x: 0, y: 0
+      })
+    }
+
+    this.set('Cache-Control', 'public,no-transform,max-age=31536000')
+    this.type = extname(preview)
+    this.body = fs.createReadStream(preview)
+  } else {
+    console.log('getting file: %s', path)
+    this.set('Cache-Control', 'public,no-transform,max-age=31536000')
+    this.type = extname(path)
+    this.body = fs.createReadStream(path)
+  }
 })
 
-router.get(/^\/preview\/(.*)/
-, function* validate(next) {
-  let directory = dirname(join(PREVIEWS, this.params[0]));
+router.post(/(.*)/, body, function* edit(next) {
+  if (!this.state.is_admin || !this.state.is_file)
+    return yield next
 
-  try {
-    fs.statSync(directory)
-  } catch(_) {
-    mkdirp.sync(directory)
-  }
+  this.state.hidden[this.state.file] = this.request.body.action === 'hide'
+  console.log('saving hidden: %s', join(this.state.absdir, '.hidden'), this.state.hidden)
+  fs.writeFileSync(join(this.state.absdir, '.hidden'), JSON.stringify(this.state.hidden))
 
-  try {
-    let hidden = join(IMAGES, '.hidden')
-    fs.statSync(hidden)
-  } catch(_) {
-    fs.writeFileSync(hidden, '{}')
-  }
-
-  yield next
-}
-, function* preview(next) {
-  yield next
-
-  let preview = join(PREVIEWS, this.params[0])
-  try {
-    fs.statSync(preview)
-  } catch(_) {
-    yield easyimage.rescrop({
-      src: join(IMAGES, this.params[0]),
-      dst: join(PREVIEWS, this.params[0]),
-      width: 500, height: 500,
-      cropwidth: 256, cropheight: 256,
-      x: 0, y: 0
-    })
-  }
-
-  this.set('Cache-Control', 'public,no-transform,max-age=31536000')
-  this.type = extname(preview)
-  this.body = fs.createReadStream(preview)
+  this.redirect(this.state.reldir)
 })
 
 app.use(views('views', {
