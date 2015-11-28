@@ -3,6 +3,7 @@
 const fs = require('fs'),
       cofs = require('co-fs'),
       mkdirp = require('mkdirp'),
+      ip = require('ip'),
       path = require('path'),
       join = path.join,
       basename = path.basename,
@@ -51,12 +52,13 @@ app.use(function* title(next) {
 })
 
 app.use(function* is_admin(next) {
-  this.state.is_admin = /^(::1|127\.|10\.|172\.1[6-9]\.|172\.2[0-9]\.|172\.3[0-1]\.|192\.168\.)/.test(this.ip)
+  // this.state.is_admin = /^(::1|127\.|10\.|172\.1[6-9]\.|172\.2[0-9]\.|172\.3[0-1]\.|192\.168\.)/.test(this.ip)
+  this.state.is_admin = ip.isPrivate(this.ip)
   yield next
 })
 
 router.use(function* setup(next) {
-  let d = this.path
+  let d = decodeURI(this.path)
   this.state.abspath = join(IMAGES, d)
   let stats = fs.statSync(this.state.abspath)
 
@@ -107,7 +109,7 @@ router.get(/(.*)/, function* dir(next) {
   }
 
   let ispic = function (f) {
-    return /.*(png|jpe?g|gif)$/.test(f.path)
+    return /.*(png|jpe?g|gif)$/i.test(f.path)
   }
 
   let directory = this.state.reldir

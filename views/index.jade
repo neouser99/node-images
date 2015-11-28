@@ -45,8 +45,8 @@ block content
                   i.icon.hide
                   span Hide
           else
-            a.ui.fluid.card(href='/img/#{file.rpath}' target='_blank')
-              .ui.image(class=file.hidden ? 'disabled' : '')
-                img(src='/preview/#{file.rpath}')
+            a.ui.fluid.card(href='./#{file.name}' target='_blank')
+              .ui.image
+                img(src='./#{file.name}')
               .content
                 span= file.name
