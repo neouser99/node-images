@@ -58,7 +58,7 @@ app.use(function* is_admin(next) {
 })
 
 router.use(function* setup(next) {
-  let d = decodeURI(this.path)
+  let d = this.state.relpath = decodeURI(this.path)
   this.state.abspath = join(IMAGES, d)
   let stats = fs.statSync(this.state.abspath)
 
@@ -148,7 +148,7 @@ router.get(/(.*)/, function* full(next) {
 
   let path = this.state.abspath
   if (~this.querystring.indexOf('thumbnail')) {
-    let preview = join(this.state.previews, path)
+    let preview = join(this.state.previews, this.state.relpath)
 
     try {
       fs.statSync(preview)
