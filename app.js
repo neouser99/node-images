@@ -49,6 +49,51 @@ app.use(function* title(next) {
   yield next
 })
 
+app.use(function* is_admin(next) {
+  this.state.is_admin = /^(::1|127\.|10\.|172\.1[6-9]\.|172\.2[0-9]\.|172\.3[0-1]\.|192\.168\.)/.test(this.ip)
+  yield next
+})
+
+router.post('/hide', body, function* hide(next) {
+  if (!this.state.is_admin)
+    return yield next
+
+  let directory = this.request.body.directory
+  let ipath = join(IMAGES, directory)
+
+  let hidden = undefined
+  try {
+    hidden = JSON.parse(fs.readFileSync(join(ipath, '.hidden')))
+  } catch(_) {
+    hidden = {}
+  }
+
+  hidden[this.request.body.file] = true
+  fs.writeFileSync(join(ipath, '.hidden'), JSON.stringify(hidden))
+
+  this.redirect(this.request.body.directory || '/')
+})
+
+router.post('/show', body, function* hide(next) {
+  if (!this.state.is_admin)
+    return yield next
+
+  let directory = this.request.body.directory
+  let ipath = join(IMAGES, directory)
+
+  let hidden = undefined
+  try {
+    hidden = JSON.parse(fs.readFileSync(join(ipath, '.hidden')))
+  } catch(_) {
+    hidden = {}
+  }
+
+  hidden[this.request.body.file] = false
+  fs.writeFileSync(join(ipath, '.hidden'), JSON.stringify(hidden))
+
+  this.redirect(this.request.body.directory || '/')
+})
+
 router.get(/^\/(?!(?:preview|img))(.*)?/, function* dir(next) {
   yield next
 
@@ -61,15 +106,23 @@ router.get(/^\/(?!(?:preview|img))(.*)?/, function* dir(next) {
     return /.*(png|jpe?g|gif)$/.test(f.path)
   }
 
-  let directory = this.params[0] || ''
+  let directory = this.state.directory = this.params[0] || ''
   if (directory.length) directory += '/'
 
   let ipath = join(IMAGES, directory)
   let files = yield cofs.readdir(ipath)
 
+  let hidden = undefined
+  try {
+    hidden = JSON.parse(fs.readFileSync(join(ipath, '.hidden')))
+  } catch(_) {
+    hidden = {}
+  }
+
   files = files
     .filter((file) => file[0] !== '.')
-    .map((file) => ({ name: file, rpath: `${directory}${file}`, path: join(ipath, file) }))
+    .filter((file) => this.state.is_admin || !hidden[file])
+    .map((file) => ({ name: file, rpath: `${directory}${file}`, path: join(ipath, file), hidden: hidden[file] }))
 
   this.state.files = files
     .filter((file) => ispic(file))
@@ -104,6 +157,13 @@ router.get(/^\/preview\/(.*)/
     fs.statSync(directory)
   } catch(_) {
     mkdirp.sync(directory)
+  }
+
+  try {
+    let hidden = join(IMAGES, '.hidden')
+    fs.statSync(hidden)
+  } catch(_) {
+    fs.writeFileSync(hidden, '{}')
   }
 
   yield next

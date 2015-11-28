@@ -1,5 +1,5 @@
 {
-  "name": "health-log",
+  "name": "node-images",
   "version": "1.0.0",
   "description": "A site to track health stuff",
   "main": "index.js",
@@ -21,6 +21,7 @@
     "koa-views": "^3.1.0",
     "mkdirp": "^0.5.1",
     "pg": "^4.4.2",
-    "pg-promise": "^1.11.0"
+    "pg-promise": "^1.11.0",
+    "semantic-ui": "^2.1.6"
   }
 }
