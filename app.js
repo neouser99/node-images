@@ -148,7 +148,7 @@ router.get(/(.*)/, function* full(next) {
 
   let path = this.state.abspath
   if (~this.querystring.indexOf('thumbnail')) {
-    let preview = join(this.state.previews, this.state.relpath)
+    let preview = join(this.state.previews, this.state.file)
 
     try {
       fs.statSync(preview)
@@ -163,6 +163,7 @@ router.get(/(.*)/, function* full(next) {
       })
     }
 
+    console.log('getting thumbnail: %s', preview)
     this.set('Cache-Control', 'public,no-transform,max-age=31536000')
     this.type = extname(preview)
     this.body = fs.createReadStream(preview)
