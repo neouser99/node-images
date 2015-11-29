@@ -53,7 +53,8 @@ app.use(function* title(next) {
 
 app.use(function* is_admin(next) {
   // this.state.is_admin = /^(::1|127\.|10\.|172\.1[6-9]\.|172\.2[0-9]\.|172\.3[0-1]\.|192\.168\.)/.test(this.ip)
-  this.state.is_admin = ip.isPrivate(this.ip)
+  // this.state.is_admin = ip.isPrivate(this.ip)
+  this.state.is_admin = ~['localhost', 'damian'].indexOf(this.hostname)
   yield next
 })
 
@@ -105,7 +106,7 @@ router.get(/(.*)/, function* dir(next) {
 
   let isdir = function (f) {
     let stats = fs.statSync(f.path)
-    return f.name !== 'orginals' && stats.isDirectory()
+    return f.name !== 'originals' && stats.isDirectory()
   }
 
   let ispic = function (f) {
